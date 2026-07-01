@@ -21,9 +21,37 @@ fi
 
 # No -r: proot uses the host filesystem as-is and only emulates privilege, so
 # toybox tar runs as fake-root and extracts $spath/debian relative to cwd.
+#
+# Tolerate tar's errors: it cannot materialise the /dev device nodes the rootfs
+# ships (proot can't create real device nodes without root) — that's fine, the
+# host /dev is bind-mounted into the guest at runtime. We assert the essential
+# rootfs afterwards instead of trusting tar's exit code.
 ./proot -0 --link2symlink -w "$spath" \
-	/system/bin/toybox tar -xzf deb.tar.gz
+	/system/bin/toybox tar -xzf deb.tar.gz || true
+
+if [ ! -x debian/bin/bash ] || [ ! -f debian/etc/os-release ]; then
+	echo "adeb: rootfs extraction failed (debian/bin/bash missing)" >&2
+	exit 1
+fi
 
 rm -f deb.tar.gz
+
+# --- proot-specific rootfs tweaks (the chroot backend must NOT get these) ---
+# 1. buildstrap rewrites _apt's gid to the Android AID_INET group (3003) so the
+#    CHROOT backend has network in apt. That group doesn't exist under proot and
+#    breaks apt's privilege handling ("user ''"), so restore the normal nogroup.
+sed -i -E 's/^(_apt:x:[0-9]+):[0-9]+:/\1:65534:/' debian/etc/passwd 2>/dev/null || true
+# 2. apt drops to a sandbox user for downloads; under proot it can't read the
+#    keyrings, so keep apt running as the (fake) root proot presents.
+mkdir -p debian/etc/apt/apt.conf.d
+printf 'APT::Sandbox::User "root";\n' > debian/etc/apt/apt.conf.d/99adeb-proot.conf
+# 3. Archive signature verification (apt-key/gpgv) does not work under proot: the
+#    privilege drop yields an empty user and every keyring is ignored. Mark the
+#    sources trusted so apt works. Trade-off: no archive-signature check in the
+#    unprivileged proot environment (the chroot backend keeps full verification).
+for sl in debian/etc/apt/sources.list debian/etc/apt/sources.list.d/*.list; do
+	[ -f "$sl" ] && sed -i -E 's#^deb +(\[[^]]*\] +)?(https?://)#deb [trusted=yes] \2#' "$sl"
+done
+
 chmod +x proot run-proot run-command-proot 2>/dev/null || true
 echo "adeb: proot rootfs unpacked at $spath/debian"

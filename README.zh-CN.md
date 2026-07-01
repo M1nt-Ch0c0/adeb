@@ -80,7 +80,9 @@ adeb prepare --proot --build --proot-bin /path/to/proot-aarch64
 adeb shell
 ```
 rootfs 会以非 root 身份安装到 `/data/local/tmp/adeb`，并**在 proot 内**解包以模拟
-设备节点与属主。
+设备节点与属主。注意：proot 模式下 `apt` 的归档签名校验被放宽（源标记为
+`[trusted=yes]`），因为 apt 掉权限读密钥环的机制在 proot 下无法工作；chroot 后端仍
+保留完整校验。
 
 **主机（Host）：**
 一台较新的 Ubuntu/Debian，4GB 内存、4GB 空闲空间。需要 `debootstrap` 和

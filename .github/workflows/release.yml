@@ -48,13 +48,25 @@ jobs:
         run: |
           sudo ./adeb prepare --full --build --no-device --buildtar "$PWD/out" --arch ${{ matrix.arch }}
 
+      - name: Build static proot from source (musl/Alpine) for the non-root backend
+        run: |
+          docker run --rm -v "$PWD/out:/out" alpine:3.20 sh -eux -c '
+            apk add --no-cache build-base linux-headers bsd-compat-headers git talloc-dev talloc-static
+            git clone --depth 1 https://github.com/proot-me/proot /src
+            make -C /src/src proot LDFLAGS="-static -ltalloc"
+            /src/src/proot --version | head -1
+            cp /src/src/proot /out/proot-'"${{ matrix.arch }}"'
+          '
+
       - name: List artifacts
         run: ls -la out
 
       - uses: actions/upload-artifact@v4
         with:
           name: images-${{ matrix.arch }}
-          path: out/*.tgz.zip
+          path: |
+            out/*.tgz.zip
+            out/proot-${{ matrix.arch }}
           if-no-files-found: error
 
   publish:
@@ -84,7 +96,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${{ steps.t.outputs.tag }}"
-          mapfile -t ASSETS < <(find dl -name '*.tgz.zip' | sort)
+          mapfile -t ASSETS < <(find dl \( -name '*.tgz.zip' -o -name 'proot-*' \) | sort)
           echo "Publishing ${#ASSETS[@]} assets to release $TAG:"
           printf '  %s\n' "${ASSETS[@]}"
           if gh release view "$TAG" >/dev/null 2>&1; then

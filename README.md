@@ -103,7 +103,10 @@ adeb prepare --proot --build --proot-bin /path/to/proot-aarch64
 adeb shell
 ```
 The rootfs is installed unprivileged under `/data/local/tmp/adeb` and unpacked
-*through* proot so device nodes and ownership are emulated.
+*through* proot so device nodes and ownership are emulated. Note: in proot mode
+`apt` archive-signature verification is relaxed (the sources are marked
+`[trusted=yes]`), because apt's privilege-dropping keyring check does not work
+under proot; the chroot backend keeps full verification.
 
 Host:
 A machine running recent Ubuntu or Debian, with 4GB of memory and 4GB free space.
