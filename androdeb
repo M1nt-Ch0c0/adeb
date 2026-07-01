@@ -225,6 +225,11 @@ if [ ! -z "$TARF" ]; then
 
 	c_info "Pushing addons to device.."
 	run_quiet remote_copy $spath/addons/* /data/androdeb/
+	# adb push does not preserve the execute bit (files land as 0666), so the
+	# on-device scripts must be made executable before they can be run.
+	run_quiet remote_shell chmod +x /data/androdeb/device-unpack \
+		/data/androdeb/device-umount-all /data/androdeb/run \
+		/data/androdeb/run-command /data/androdeb/build-debian-tar
 
 	c_info "Unpacking filesystem in device.."
 	run_quiet remote_shell /data/androdeb/device-unpack
@@ -264,6 +269,11 @@ fi
 remote_shell mkdir -p /data/androdeb/
 remote_copy $TDIR/deb.tar.gz /data/androdeb/
 remote_copy $spath/addons/* /data/androdeb/
+# adb push does not preserve the execute bit (files land as 0666), so the
+# on-device scripts must be made executable before they can be run.
+remote_shell chmod +x /data/androdeb/device-unpack \
+	/data/androdeb/device-umount-all /data/androdeb/run \
+	/data/androdeb/run-command /data/androdeb/build-debian-tar
 remote_shell /data/androdeb/device-unpack
 
 # Extract a tar of the built, compiled and installed androdeb env

@@ -1,21 +1,30 @@
 do_mounts()
 {
+	# Use plain (non-recursive) binds. NOTE: do NOT switch these to --rbind:
+	# on Android /sys is a shared mount, and a recursive bind pulls every
+	# submount (tracefs, bpffs, ...) in as a *shared peer*. Unmounting those
+	# peers at teardown then propagates back and unmounts the device's real
+	# tracefs/bpffs. A non-recursive bind does not propagate on umount, so we
+	# bind each needed submount explicitly instead (as the original did).
 	mount --bind /proc debian/proc/ > /dev/null
 
 	mount --bind /dev debian/dev/ > /dev/null
 	mount --bind /dev/pts debian/dev/pts > /dev/null
 
 	mount --bind /sys debian/sys/ > /dev/null
-	mount --bind /sys/fs/bpf/ debian/sys/fs/bpf/ > /dev/null
-	mount --bind /sys/kernel/debug/ debian/sys/kernel/debug/ > /dev/null
-	mount --bind /sys/kernel/debug/tracing/ debian/sys/kernel/debug/tracing/
+	[ -d /sys/fs/bpf ] && mount --bind /sys/fs/bpf/ debian/sys/fs/bpf/ > /dev/null
 
-	# Fix up weirdness with debugfs permission changing because of
-	# above mounts.
-	chmod 0777       /sys/kernel/debug > /dev/null
-	chmod 0777 debian/sys/kernel/debug > /dev/null
-	chmod 0777       /sys/kernel/debug/tracing > /dev/null
-	chmod 0777 debian/sys/kernel/debug/tracing > /dev/null
+	# tracefs location varies by kernel: modern Android/Linux exposes it at
+	# /sys/kernel/tracing, older kernels nested it under
+	# /sys/kernel/debug/tracing. Bind whichever the kernel actually provides
+	# into the chroot at the matching path so perf/BCC/bpftrace can find it.
+	if [ -e /sys/kernel/tracing/trace ]; then
+		mount --bind /sys/kernel/tracing debian/sys/kernel/tracing > /dev/null
+	fi
+	if [ -e /sys/kernel/debug/tracing/trace ]; then
+		mount --bind /sys/kernel/debug debian/sys/kernel/debug > /dev/null
+		mount --bind /sys/kernel/debug/tracing debian/sys/kernel/debug/tracing > /dev/null
+	fi
 
 	# Mount Android partitions
 	if [ -d /d/ ]; then

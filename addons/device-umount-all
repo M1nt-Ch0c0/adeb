@@ -5,9 +5,12 @@ if [ "$1x" == "--debugx" ]; then
 fi
 
 umount_all() {
-	mpoints=$(mount|cut -d ' ' -f3|grep debian)
+	# Sort by longest path first so nested submounts (from recursive binds)
+	# are unmounted before their parents. Use lazy umount so a still-busy
+	# parent still detaches instead of blocking teardown.
+	mpoints=$(mount|cut -d ' ' -f3|grep debian|awk '{ print length, $0 }'|sort -rn|cut -d ' ' -f2-)
 	for m in $mpoints;
-		do umount $m 2>&1 > /dev/null
+		do umount -l $m 2>&1 > /dev/null
 	done
 }
 

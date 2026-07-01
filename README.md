@@ -45,6 +45,18 @@ see the [Other Architectures](https://github.com/joelagnel/adeb/blob/master/READ
 You can also use ssh to run on non-android systems. The system must still be
 rooted and has 2 GB of free space.
 
+Notes on tracing (eBPF/BCC/bpftrace) support: adeb bind-mounts the kernel's
+tracefs into the environment automatically, wherever the kernel exposes it
+(modern kernels use `/sys/kernel/tracing`, older ones nested it under
+`/sys/kernel/debug/tracing`). What actually runs then depends on the kernel:
+* CO-RE tools (bpftrace, libbpf-based tools) work as long as the kernel was
+  built with BTF (`/sys/kernel/btf/vmlinux` present) — true on most recent
+  Android GKI kernels.
+* Classic BCC python tools compile their programs at runtime and therefore need
+  kernel headers. If the device kernel does not ship them
+  (`CONFIG_IKHEADERS`/`/sys/kernel/kheaders.tar.xz`), those specific tools will
+  report "Unable to find kernel headers"; prefer bpftrace/CO-RE tools there.
+
 Host:
 A machine running recent Ubuntu or Debian, with 4GB of memory and 4GB free space.
 Host needs the `debootstrap` and `qemu-user-static` packages. The old
