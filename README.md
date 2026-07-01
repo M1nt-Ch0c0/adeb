@@ -1,8 +1,29 @@
-> Note: The project
- is not maintained for new Android and Debian
- releases, but likely works with little effort.
- I suggest reaching out to me if you are
- interested in maintaining it and I will decide.
+<!-- fork banner -->
+> 📖 **中文文档 / Chinese docs:** [README.zh-CN.md](README.zh-CN.md)
+>
+> This is an **actively maintained fork** of the (now archived) original
+> [joelagnel/adeb](https://github.com/joelagnel/adeb), brought up to date for
+> current Debian and Android.
+>
+> **Main changes vs. upstream:**
+> - **Debian bookworm (12)** instead of EOL buster; the removed
+>   `qemu-debootstrap` is replaced by plain `debootstrap` + `qemu-user-static`.
+> - **Python 3** everywhere — packages and the perf/BCC helper scripts.
+> - **Unversioned LLVM/Clang** (was hardcoded LLVM 7); BCC builds against the
+>   shared `libLLVM` (`ENABLE_LLVM_SHARED`) and fetches its git submodules.
+> - **On-device fixes for modern Android**: restore the executable bit that
+>   `adb push` strips, mount tracefs from `/sys/kernel/tracing` (kernel 6.x),
+>   avoid unmount propagation to the device's real tracefs/bpffs, and make the
+>   `_apt` AID_INET group fix Debian-release independent.
+> - **New `--distro` / `--mirror` options**, prebuilt release images (so
+>   `adeb prepare` can download instead of build) and a `release-artifacts.sh`
+>   publisher; stale AOSP import files removed.
+> - **Validated end-to-end on real hardware** (aarch64, kernel 6.12 / Android
+>   16): the chroot boots, `apt` works, native `gcc`/`python3` compile, and
+>   `bpftrace` attaches eBPF to the live kernel via BTF.
+>
+> This fork is **actively maintained and will keep being updated.** Issues and
+> PRs are welcome.
 
 adeb
 --------
@@ -84,7 +105,7 @@ sudo ln -s $(pwd)/adeb /usr/bin/adeb
 # ADEB_REPO_URL environment variable in your bashrc file.
 # Disclaimer: Google is not liable for the below URL and this
 #             is just an example.
-export ADEB_REPO_URL="github.com/joelagnel/adeb/"
+export ADEB_REPO_URL="github.com/M1nt-Ch0c0/adeb/"
 ```
 
 * Installing adeb onto your device:
