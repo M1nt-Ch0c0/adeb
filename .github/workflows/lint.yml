@@ -1,8 +1,33 @@
 name: lint
 
 on:
+  # Only when actual scripts or workflows change — never for docs-only edits,
+  # and not on tag pushes (branch pushes only).
   push:
+    branches: ['**']
+    paths:
+      - 'adeb'
+      - 'androdeb'
+      - 'buildstrap'
+      - 'buildimage'
+      - 'release-artifacts.sh'
+      - 'utils/**'
+      - 'addons/**'
+      - 'bcc/**'
+      - 'packages/**'
+      - '.github/workflows/**'
   pull_request:
+    paths:
+      - 'adeb'
+      - 'androdeb'
+      - 'buildstrap'
+      - 'buildimage'
+      - 'release-artifacts.sh'
+      - 'utils/**'
+      - 'addons/**'
+      - 'bcc/**'
+      - 'packages/**'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 jobs:
