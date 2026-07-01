@@ -127,7 +127,9 @@ my_tput() {
 	if [ "${TERM-dumb}" == dumb ]; then
 		return
 	fi
-	tput $*
+	# Never let a failing tput (e.g. TERM=unknown on CI runners, which returns
+	# 3) abort the caller under `set -e`; colors are cosmetic.
+	tput "$@" 2>/dev/null || true
 }
 
 box_out()
