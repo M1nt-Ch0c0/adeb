@@ -47,8 +47,14 @@ rooted and has 2 GB of free space.
 
 Host:
 A machine running recent Ubuntu or Debian, with 4GB of memory and 4GB free space.
-Host needs debootstrap and qemu-debootstrap packages.
-To install it, run `sudo apt-get install qemu-user-static debootstrap`.
+Host needs the `debootstrap` and `qemu-user-static` packages. The old
+`qemu-debootstrap` wrapper is no longer required: modern `debootstrap` bootstraps
+a foreign architecture transparently as long as `qemu-user-static` (and its
+binfmt handlers) are installed.
+To install them on Debian/Ubuntu, run
+`sudo apt-get install qemu-user-static binfmt-support debootstrap`.
+On Arch Linux, run
+`sudo pacman -S debootstrap qemu-user-static qemu-user-static-binfmt`.
 Other distributions may work but they are not tested.
 
 Quick Start Instructions
@@ -173,6 +179,9 @@ Solution: Run `adeb shell apt-get update` after the `adeb prepare` stage.
 
 2. It's too slow to use debootstrap to create debian fs
 
-Solution: Use a local mirror, for example in China you could use
-https://mirror.tuna.tsinghua.edu.cn/debian/ instead of debian official website
-http://deb.debian.org/debian/
+Solution: Use a local mirror with the `--mirror` option (or the `DEBIAN_MIRROR`
+environment variable). For example in China you could use:
+```
+adeb prepare --build --mirror https://mirror.tuna.tsinghua.edu.cn/debian
+```
+instead of the default official mirror http://deb.debian.org/debian .

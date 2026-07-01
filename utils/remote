@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 # Utilities to talk to the device more easily using adb or ssh
 
 function validate_remote() {

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # Map inode numbers to names.
 # Corresponding kernel patch is in:
 # 0001-trace-file-path-inode-number.patch
@@ -53,7 +53,8 @@ while 1:
 		sleep(1)
 	except KeyboardInterrupt:
 		exiting = 1
-        call("clear")
+
+	call("clear")
 
 	for k, v in inode_map.items():
 		print("%-6d %s" % (k.value, v.path.decode('utf-8', 'replace')))

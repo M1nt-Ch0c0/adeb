@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 print_prepare_banner() {
 	c_info "Preparing device..."
@@ -37,7 +37,10 @@ usage() {
 	c_info "	** Folowing are misc build options **"
 	c_info "	  --tempdir	Use a specific temporary directory for build operation"
 	c_info "	  --arch		Specify an ARCH to build for (default arm64)"
-	c_info "	  --distro	Debian distro to base on (default is buster)"
+	c_info "	  --distro	Debian distro to base on (default is bookworm)"
+	c_info "	  --mirror	Debian mirror URL to debootstrap from"
+	c_info "			(default http://deb.debian.org/debian, override for a"
+	c_info "			 faster local mirror, e.g. a Tsinghua/USTC mirror)"
 	c_info ""
 	c_info "	** Folowing are the options for BCC **"
 	c_info "	  --bcc		Build and install BCC onto the device, from source"

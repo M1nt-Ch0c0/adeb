@@ -12,7 +12,9 @@ source $spath/utils/banners
 source $spath/utils/remote
 
 # Set default vars
-DISTRO=buster; ARCH=arm64
+# DISTRO and DEBIAN_MIRROR can be overridden from the environment.
+DISTRO="${DISTRO:-bookworm}"; ARCH=arm64
+DEBIAN_MIRROR="${DEBIAN_MIRROR:-http://deb.debian.org/debian}"
 ADB="adb"
 REMOTE="adb"
 FULL=0				# Default to a minimal install
@@ -53,6 +55,8 @@ case $key in
     prepare) PREPARE=1;  shift || true;    ;;
     --full) FULL=1; config_full_build; shift || true; ;;
     --arch) ARCH=$2; shift || true; shift || true; ;;
+    --distro) DISTRO=$2; shift || true; shift || true; ;;
+    --mirror) DEBIAN_MIRROR=$2; shift || true; shift || true; ;;
     --archive) DOWNLOAD=0; TARF=$2; shift || true; shift || true; ;;
     --bcc) FULL=1; source $spath/packages/bcc; shift || true;     ;;
     --tempdir) TDIR="$2"; shift || true;     shift || true;     ;;
@@ -237,7 +241,7 @@ ex_files=$(mktemp); echo $EXTRA_FILES > $ex_files
 
 sudo $spath/buildstrap $ARCH $DISTRO $TDIR $OUT_TMP \
 		"$(make_csv "$PACKAGES")"\
-		$ex_files $INSTALL_BCC $SKIP_DEVICE
+		$ex_files $INSTALL_BCC $SKIP_DEVICE "$DEBIAN_MIRROR"
 rm $ex_files
 
 # If we only wanted to prepare a rootfs and don't have

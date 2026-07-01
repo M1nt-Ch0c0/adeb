@@ -9,16 +9,16 @@ fi
 # This is a WIP script to be build a minimal GCC rootfs image
 SPATH="$(dirname "$(readlink -f "$0")")"
 
-DIST=buster
+DIST=bookworm
 BLD_DIR=$SPATH/gcc.bld
 
 rm -rf $BLD_DIR && mkdir -p $BLD_DIR
 
 # Build a chroot for the build system to build BCC into
-sudo qemu-debootstrap \
+sudo debootstrap \
     --arch amd64 \
     --include=gcc,make,libc6-dev \
-    --variant=minbase $DIST $BLD_DIR http://ftp.us.debian.org/debian
+    --variant=minbase $DIST $BLD_DIR http://deb.debian.org/debian
 
 # Clean up the chroot for whatever is not needed
 # find   $BLD_DIR -name "*.a" |xargs rm -rf

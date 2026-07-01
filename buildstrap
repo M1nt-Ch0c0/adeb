@@ -12,10 +12,14 @@ PACKAGES=$5
 EXTRA_FILES="$(cat $6)"
 INSTALL_BCC=$7
 SKIP_DEVICE=$8		# Skip any device-specific stages
+MIRROR="${9:-http://deb.debian.org/debian}"
 VARIANT="--variant=minbase"
 
-time qemu-debootstrap --arch $ARCH --include=$PACKAGES $VARIANT \
-	$DISTRO $OUT_TMP http://ftp.us.debian.org/debian/
+# qemu-debootstrap was deprecated and removed from debootstrap. Modern
+# debootstrap performs the foreign-arch bootstrap transparently as long as
+# qemu-user-static is installed and its binfmt handlers are registered.
+time debootstrap --arch $ARCH --include=$PACKAGES $VARIANT \
+	$DISTRO $OUT_TMP $MIRROR
 
 # Some reason debootstrap leaves these mounted
 umount $OUT_TMP/proc/sys/fs/binfmt_misc || true
@@ -47,13 +51,15 @@ rm -rf $OUT_TMP/usr/lib/share/ieee-data/*
 rm -rf $OUT_TMP/usr/share/man/*
 rm -rf $OUT_TMP/usr/lib/share/man/*
 
-# Fix apt-get issue: Android requires _apt user to be in the
-# AID_INET group which is also android specific.
-grep -ri _apt:x:100:65534 $OUT_TMP/etc/passwd > /dev/null 2>&1
-if [ $? -ne 0 ]; then
-	c_warning "_apt user cannot be added to AID_INET group"
+# Fix apt-get issue: Android requires the _apt user's group to be the
+# AID_INET group (gid 3003) which is android specific, otherwise apt-get
+# cannot access the network on device. The _apt uid is not stable across
+# Debian releases (e.g. 100 on buster, 42 on bookworm), so match on the
+# username and only rewrite the primary gid (65534/nogroup -> 3003).
+if grep -q '^_apt:' $OUT_TMP/etc/passwd; then
+	sed -i -E 's/^(_apt:x:[0-9]+):[0-9]+:/\1:3003:/' $OUT_TMP/etc/passwd
 else
-	sed -i -e 's/_apt:x:100:65534/_apt:x:100:3003/' $OUT_TMP/etc/passwd
+	c_warning "_apt user not found, skipping AID_INET group fix"
 fi
 
 # Add a default DNS server
@@ -61,9 +67,13 @@ echo "nameserver 4.2.2.2" > $OUT_TMP/etc/resolv.conf
 
 # Clone BCC if needed
 if [ $INSTALL_BCC -eq 1 ]; then
-	git clone https://github.com/iovisor/bcc.git $TDIR/debian/bcc-master
+	# Modern BCC vendors libbpf/blazesym/bpftool as git submodules, so they
+	# must be fetched up front (--recurse-submodules) or the build fails with
+	# a missing libbpf/src/bpf.h. Fetch them here on the host so the in-chroot
+	# build does not need to touch git at all.
+	git clone --recurse-submodules https://github.com/iovisor/bcc.git $TDIR/debian/bcc-master
 	cp $spath/bcc/build-bcc.sh $TDIR/debian/bcc-master/
-	chroot $OUT_TMP /bcc-master/build-bcc.sh
+	chroot $OUT_TMP /bcc-master/build-bcc.sh || die 11 "BCC build failed"
 fi
 
 # Should we really do this?

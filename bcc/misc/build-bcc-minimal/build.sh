@@ -13,7 +13,7 @@ fi
 
 SPATH="$(dirname "$(readlink -f "$0")")"
 
-DIST=buster
+DIST=bookworm
 RUN_DIR=$SPATH/bcc.run
 BLD_DIR=$SPATH/bcc.bld
 
@@ -22,10 +22,10 @@ rm -rf $RUN_DIR && mkdir -p $RUN_DIR
 rm -rf $BLD_DIR && mkdir -p $BLD_DIR
 
 # Build a chroot for the build system to build BCC into
-sudo qemu-debootstrap \
+sudo debootstrap \
     --arch arm64 \
-    --include=procps,git,clang-7,cmake,llvm-7-dev,libclang-7-dev,libelf-dev,libfl-dev,libunwind-dev,libdw-dev,git,libtool,autoconf,make,cmake,iperf,arping,ethtool,flex,bison,python,clang-7,python-netaddr,python-pyroute2 \
-    --variant=minbase $DIST $BLD_DIR http://ftp.us.debian.org/debian
+    --include=procps,git,clang,cmake,llvm-dev,libclang-dev,libclang-cpp-dev,libelf-dev,libfl-dev,libunwind-dev,libdw-dev,git,g++,libtool,autoconf,make,cmake,iperf3,arping,ethtool,flex,bison,python3,clang,python3-netaddr,python3-pyroute2 \
+    --variant=minbase $DIST $BLD_DIR http://deb.debian.org/debian
 
 pushd $BLD_DIR
 git clone --recurse-submodules https://github.com/iovisor/bcc.git bcc-master
@@ -35,10 +35,10 @@ cp $SPATH/build-on-target.sh $BLD_DIR/
 sudo chroot $BLD_DIR /build-on-target.sh
 
 ################ SECOND STAGE - BUILD the run chroot
-qemu-debootstrap \
+debootstrap \
    --arch arm64 \
-   --include=libelf1,python,python-netaddr,python-pyroute2 \
-   --variant=minbase $DIST $RUN_DIR http://ftp.us.debian.org/debian
+   --include=libelf1,python3,python3-netaddr,python3-pyroute2 \
+   --variant=minbase $DIST $RUN_DIR http://deb.debian.org/debian
 
 # Sync the built BCC from the build chroot onto the run chroot
 rsync -rav $BLD_DIR/bcc-master/build/future-usr/ $RUN_DIR/usr/

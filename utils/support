@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 # Utilities to interact with android more easily
 
 function run_quiet() { eval "$* >/dev/null 2>&1"; }
