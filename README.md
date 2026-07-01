@@ -216,6 +216,11 @@ by CI on each release — arm64 built on an arm64 runner, amd64 on an x86 runner
 - `release` — on a `v*` tag, builds base + full images for arm64 and amd64 on
   their native runners and publishes them to the tag's GitHub Release.
 
+Triggers: `lint` and `smoke` run on pull requests and branch/master pushes but
+skip docs-only (`**.md`) changes; `release` runs only on `v*` tags. So a
+docs-only change runs nothing, a PR runs lint+smoke, and pushing a tag cuts a
+release.
+
 Maintainers can also build/publish images from a connected device with
 `./release-artifacts.sh`.
 
