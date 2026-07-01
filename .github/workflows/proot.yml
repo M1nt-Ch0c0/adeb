@@ -28,7 +28,7 @@ jobs:
           docker run --rm -v "$PWD:/out" alpine:3.20 sh -eux -c '
             apk add --no-cache build-base linux-headers bsd-compat-headers git talloc-dev talloc-static
             git clone --depth 1 https://github.com/proot-me/proot /src
-            make -C /src/src proot V=1 LDFLAGS="-static"
+            make -C /src/src proot V=1 LDFLAGS="-static -ltalloc"
             /src/src/proot --version
             ldd /src/src/proot 2>&1 || true
             cp /src/src/proot /out/proot-'"${{ matrix.arch }}"'
