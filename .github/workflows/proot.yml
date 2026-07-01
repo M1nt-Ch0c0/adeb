@@ -1,0 +1,42 @@
+name: proot
+
+# Build a static `proot` from source (musl/Alpine → fully static, runs on
+# Android bionic) for arm64 and amd64, each on its native runner. Used by the
+# non-root (proot) backend. Artifacts can be attached to releases.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/proot.yml'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runs-on: ubuntu-latest
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runs-on }}
+    name: proot-${{ matrix.arch }}
+    steps:
+      - name: Build static proot from source (musl/Alpine)
+        run: |
+          docker run --rm -v "$PWD:/out" alpine:3.20 sh -eux -c '
+            apk add --no-cache build-base linux-headers git talloc-dev talloc-static
+            git clone --depth 1 https://github.com/proot-me/proot /src
+            make -C /src/src proot V=1 LDFLAGS="-static"
+            /src/src/proot --version
+            ldd /src/src/proot 2>&1 || true
+            cp /src/src/proot /out/proot-'"${{ matrix.arch }}"'
+          '
+          ls -la proot-${{ matrix.arch }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: proot-${{ matrix.arch }}
+          path: proot-${{ matrix.arch }}
+          if-no-files-found: error
