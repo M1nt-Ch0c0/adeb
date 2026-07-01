@@ -1,0 +1,101 @@
+name: release
+
+# On a v* tag (or manual dispatch), build prebuilt rootfs images for arm64 and
+# amd64 — each on its own native runner — and publish them as assets on the
+# GitHub Release for that tag, so `adeb prepare [--full] [--arch amd64]` can
+# download instead of building locally.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build & publish assets for'
+        required: true
+        default: v0.0.0-citest
+      full:
+        description: 'Also build the full (BCC) images'
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runs-on: ubuntu-latest
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runs-on }}
+    name: build-${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: sudo apt-get update && sudo apt-get install -y debootstrap zip git debian-archive-keyring
+
+      - name: Build base image (${{ matrix.arch }})
+        run: |
+          mkdir -p out
+          sudo ./adeb prepare --build --no-device --buildtar "$PWD/out" --arch ${{ matrix.arch }}
+
+      - name: Build full image (${{ matrix.arch }})
+        if: ${{ github.event_name == 'push' || inputs.full }}
+        continue-on-error: true
+        run: |
+          sudo ./adeb prepare --full --build --no-device --buildtar "$PWD/out" --arch ${{ matrix.arch }}
+
+      - name: List artifacts
+        run: ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: images-${{ matrix.arch }}
+          path: out/*.tgz.zip
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dl
+
+      - name: Resolve tag
+        id: t
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish assets to the Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.t.outputs.tag }}"
+          mapfile -t ASSETS < <(find dl -name '*.tgz.zip' | sort)
+          echo "Publishing ${#ASSETS[@]} assets to release $TAG:"
+          printf '  %s\n' "${ASSETS[@]}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${ASSETS[@]}" --clobber
+          else
+            gh release create "$TAG" "${ASSETS[@]}" \
+              --title "adeb $TAG — prebuilt rootfs (arm64 + amd64)" \
+              --notes "Automated multi-arch prebuilt Debian bookworm rootfs images.
+
+          * \`androdeb-fs-minimal.tgz.zip\` / \`-amd64\` — base image (\`adeb prepare [--arch amd64]\`)
+          * \`androdeb-fs.tgz.zip\` / \`-amd64\` — full image with compilers/tracers/BCC (\`adeb prepare --full\`)
+
+          Built natively on GitHub-hosted arm64 and x86 runners."
+          fi

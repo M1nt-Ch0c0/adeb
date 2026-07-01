@@ -6,17 +6,17 @@ function validate_remote() {
 
 		if [ -z "$ADB" ]; then
 			c_error "ADB is not defined"
-			exit -1
+			exit 1
 		fi
 	elif [ "$REMOTE" == "ssh" ]; then
 
 		if [ -z "$SSH_URI" ]; then
 			c_error "SSH_URI is not defined"
-			exit -1
+			exit 1
 		fi
 	else
 		c_error "Unknown remote: $REMOTE"
-		exit -1
+		exit 1
 	fi
 }
 
@@ -33,7 +33,7 @@ function remote_adb_pull() {
 		c_info "Preserving filestamps and mode"
 		shift || true
 	fi
-	file_count=`count_sources $@`
+	file_count=`count_sources "$@"`
 	i=0
 	while [ $i -lt $file_count ]; do
 		files["$i"]=/data/androdeb/debian/$1
@@ -44,7 +44,7 @@ function remote_adb_pull() {
 }
 
 function remote_adb_push() {
-	file_count=`count_sources $@`
+	file_count=`count_sources "$@"`
 	i=0
 	while [ $i -lt $file_count ]; do
 		files["$i"]=$1

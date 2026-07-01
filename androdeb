@@ -29,7 +29,7 @@ DEFAULT_PACKAGES="bash ca-certificates apt net-tools iputils-ping procps vim"
 EXTRA_FILES="none"
 
 config_full_build() {
-	for f in $(ls $spath/packages); do source $spath/packages/$f; done;
+	for f in "$spath"/packages/*; do source "$f"; done;
 }
 
 # Parse command line parameters
@@ -66,6 +66,7 @@ case $key in
     --ssh) REMOTE="ssh"; SSH_URI="$2"; shift || true; shift || true; ;;
     --sshpass) SSHPASS="sshpass -p$2"; shift || true; shift || true; ;;
     --build-image) BI=1; BUILD_IMAGEF=$2; SKIP_DEVICE=1; DOWNLOAD=0; shift || true; shift || true; ;;
+    --no-device) NODEV=1; DOWNLOAD=0; shift || true; ;;
     --debug) set -x; shift || true; ;;
     *) c_error "Unknown option ($1)"; usage; ;;
 esac
@@ -73,12 +74,17 @@ done
 
 [ -z $ASHELL ] && box_out "adeb: $VERSION"
 
+# Artifact names. arm64 keeps the historical bare names (backward compatible
+# with existing releases and the README); other arches get an -$ARCH suffix so
+# multi-arch prebuilt images can coexist and `adeb prepare --arch X` downloads
+# the right one.
+ARCH_SUFFIX=""; [ "$ARCH" != "arm64" ] && ARCH_SUFFIX="-$ARCH"
 if [ $FULL -eq 1 ]; then
-	FNAME=androdeb-fs.tgz.zip
-	FNAME_UZ=androdeb-fs.tgz
+	FNAME=androdeb-fs${ARCH_SUFFIX}.tgz.zip
+	FNAME_UZ=androdeb-fs${ARCH_SUFFIX}.tgz
 else
-	FNAME=androdeb-fs-minimal.tgz.zip
-	FNAME_UZ=androdeb-fs-minimal.tgz
+	FNAME=androdeb-fs-minimal${ARCH_SUFFIX}.tgz.zip
+	FNAME_UZ=androdeb-fs-minimal${ARCH_SUFFIX}.tgz
 fi
 
 if [ ! -z $BTAR ] && [ -z $TARDIR ]; then
@@ -248,6 +254,20 @@ sudo $spath/buildstrap $ARCH $DISTRO $TDIR $OUT_TMP \
 		"$(make_csv "$PACKAGES")"\
 		$ex_files $INSTALL_BCC $SKIP_DEVICE "$DEBIAN_MIRROR"
 rm $ex_files
+
+# Device-less tarball build (e.g. CI / release image generation): buildstrap
+# already produced $TDIR/deb.tar.gz (with BCC too, if requested), so package it
+# straight into the release artifact without ever touching a device.
+if [ ! -z ${NODEV+x} ]; then
+	[ ! -z ${TARDIR+x} ] || die 12 "--no-device requires --buildtar <dir>"
+	c_info "Packaging rootfs tarball (no device): $FNAME"
+	pushd $TARDIR > /dev/null
+	mv $TDIR/deb.tar.gz $FNAME_UZ
+	rm -f $FNAME; zip -r $FNAME $FNAME_UZ
+	popd > /dev/null
+	c_info "Artifact: $TARDIR/$FNAME"
+	do_cleanup; all_done_banner; exit 0
+fi
 
 # If we only wanted to prepare a rootfs and don't have
 # a device connected, then just echo that and skip cleanup

@@ -1,0 +1,50 @@
+name: smoke
+
+# Build a base rootfs natively on each arch's own runner (no qemu, no device)
+# and prove it is a working Debian chroot. Doubles as a build regression test.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runs-on: ubuntu-latest
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runs-on }}
+    name: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: sudo apt-get update && sudo apt-get install -y debootstrap zip git debian-archive-keyring
+
+      - name: Build base rootfs (${{ matrix.arch }}, native)
+        run: |
+          mkdir -p out
+          sudo ./adeb prepare --build --no-device --buildtar "$PWD/out" --arch ${{ matrix.arch }}
+          ls -la out
+
+      - name: Smoke test — chroot the rootfs
+        run: |
+          set -euo pipefail
+          mkdir -p rootfs
+          zip=$(ls out/androdeb-fs-minimal*.tgz.zip)
+          unzip -o "$zip" -d out
+          tgz="${zip%.zip}"
+          sudo tar -xzf "$tgz" -C rootfs
+          sudo chroot rootfs/debian /bin/bash -c '
+            set -e
+            grep PRETTY_NAME /etc/os-release
+            echo "chroot arch: $(dpkg --print-architecture)"
+            apt-get --version | head -1
+            echo SMOKE_OK'
+          # the reported arch must match the arch we asked to build
+          test "$(sudo chroot rootfs/debian dpkg --print-architecture)" = "${{ matrix.arch }}"
