@@ -1,3 +1,6 @@
+[![lint](https://github.com/M1nt-Ch0c0/adeb/actions/workflows/lint.yml/badge.svg)](https://github.com/M1nt-Ch0c0/adeb/actions/workflows/lint.yml)
+[![smoke](https://github.com/M1nt-Ch0c0/adeb/actions/workflows/smoke.yml/badge.svg)](https://github.com/M1nt-Ch0c0/adeb/actions/workflows/smoke.yml)
+
 <!-- fork banner -->
 > 📖 **中文文档 / Chinese docs:** [README.zh-CN.md](README.zh-CN.md)
 >
@@ -194,15 +197,27 @@ device connected.
 
 ### How to use adeb for other Architectures (other than ARM64)
 By default adeb assumes the target Android device is based on ARM64
-processor architecture. For other architectures, use the --arch and --build option.
-For example for x86_64 architecture, run:
+processor architecture. For other architectures, pass `--arch`. For example for
+x86_64:
 ```
-adeb prepare --build --arch amd64
+adeb prepare --arch amd64          # downloads the prebuilt amd64 image
+adeb prepare --full --arch amd64   # downloads the prebuilt amd64 full image
+adeb prepare --build --arch amd64  # or build it locally
 ```
-Note: For arch other than ARM 64-bit, you have to pass the --build option to
-adeb.  Without this, adeb tries to download an ARM image and will not work.
-TODO: We should auto detect this issue and provide an informative error.  This
-is because we only provide pre-built filesystems for ARM 64-bit at the moment.
+Prebuilt **arm64 and amd64** images (base and full) are published automatically
+by CI on each release — arm64 built on an arm64 runner, amd64 on an x86 runner
+(see `.github/workflows/release.yml`). For any other architecture, pass
+`--build` so adeb builds the rootfs locally instead of downloading.
+
+### Continuous integration
+- `lint` — shellcheck over all shell scripts.
+- `smoke` — builds a base rootfs natively for amd64 and arm64 and chroots into
+  it to verify it works.
+- `release` — on a `v*` tag, builds base + full images for arm64 and amd64 on
+  their native runners and publishes them to the tag's GitHub Release.
+
+Maintainers can also build/publish images from a connected device with
+`./release-artifacts.sh`.
 
 Common Trouble shooting
 -----------------

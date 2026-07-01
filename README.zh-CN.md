@@ -163,14 +163,24 @@ adeb prepare --build-image /path/to/image.img
 
 ## 其它架构（非 ARM64）
 
-默认假设目标设备是 ARM64。其它架构请配合 `--arch` 与 `--build`，例如 x86_64：
+默认假设目标设备是 ARM64。其它架构用 `--arch` 指定，例如 x86_64：
 
 ```bash
-adeb prepare --build --arch amd64
+adeb prepare --arch amd64          # 下载预构建 amd64 镜像
+adeb prepare --full --arch amd64   # 下载预构建 amd64 完整镜像
+adeb prepare --build --arch amd64  # 或本地构建
 ```
 
-注意：非 ARM64 时必须带 `--build`，否则 adeb 会去下载 ARM 镜像而无法工作
-（目前仅为 ARM64 提供预构建 rootfs）。
+**arm64 与 amd64** 的预构建镜像（基础版和完整版）由 CI 在每次发版时自动构建并发布
+——arm64 在 arm64 runner 上构建、amd64 在 x86 runner 上构建
+（见 `.github/workflows/release.yml`）。其它架构请带 `--build` 让 adeb 本地构建。
+
+## 持续集成（CI）
+
+- `lint`：对所有 shell 脚本跑 shellcheck。
+- `smoke`：分别在 amd64 与 arm64 上原生构建基础 rootfs 并 chroot 验证可用。
+- `release`：打 `v*` tag 时，在各自原生 runner 上构建 arm64/amd64 的基础+完整镜像，
+  并发布到该 tag 的 GitHub Release。
 
 ## 常见问题
 
