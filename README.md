@@ -81,6 +81,30 @@ tracefs into the environment automatically, wherever the kernel exposes it
   (`CONFIG_IKHEADERS`/`/sys/kernel/kheaders.tar.xz`), those specific tools will
   report "Unable to find kernel headers"; prefer bpftrace/CO-RE tools there.
 
+### Running without root (proot backend)
+adeb has two backends for entering the Debian environment:
+
+- **chroot (default, needs root)** — real `chroot` + bind mounts, native speed,
+  full functionality including kernel tracing (eBPF/BCC/perf). Used when
+  `adb root` (or `su`) is available.
+- **proot (no root)** — [proot](https://proot-me.github.io/) uses `ptrace(2)`
+  to emulate `chroot` and a fake root entirely in user space, so it runs on a
+  stock, non-rooted device. You get a full Debian userland (apt, gcc/clang,
+  python, git, editors, running normal programs), but **no kernel tracing**
+  (eBPF/BCC/perf need real privileges the kernel won't grant under proot) and
+  it is slower (every syscall goes through ptrace).
+
+adeb auto-selects: if `adb root` fails it falls back to proot; use `--proot` to
+force it. proot needs a static `proot` binary for the target arch, supplied
+with `--proot-bin <path>` (e.g. the one from Termux's `pkg install proot`, or a
+static build). Example:
+```
+adeb prepare --proot --build --proot-bin /path/to/proot-aarch64
+adeb shell
+```
+The rootfs is installed unprivileged under `/data/local/tmp/adeb` and unpacked
+*through* proot so device nodes and ownership are emulated.
+
 Host:
 A machine running recent Ubuntu or Debian, with 4GB of memory and 4GB free space.
 Host needs the `debootstrap` and `qemu-user-static` packages. The old

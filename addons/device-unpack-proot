@@ -1,0 +1,29 @@
+#!/system/bin/sh
+# Unpack the adeb rootfs for the proot (non-root) backend, in the adeb data dir
+# under /data/local/tmp (writable + executable without root).
+#
+# The extraction runs UNDER proot -0: a plain non-root tar cannot create the
+# device nodes (mknod), ownership (chown) or some hardlinks the rootfs contains.
+# proot emulates all of that, and --link2symlink turns hardlinks into symlinks
+# (some Android filesystems reject cross-file link()).
+set -e
+spath=$(cd "$(dirname "$0")" && pwd)
+cd "$spath"
+
+[ -f deb.tar.gz ] || { echo "adeb: rootfs tar not found at $spath/deb.tar.gz" >&2; exit 1; }
+[ -x proot ]      || { echo "adeb: proot binary missing/not executable at $spath/proot" >&2; exit 1; }
+
+if [ -d debian ]; then
+	echo "adeb: existing environment found, replacing it"
+	chmod -R u+w debian 2>/dev/null || true
+	rm -rf debian
+fi
+
+# No -r: proot uses the host filesystem as-is and only emulates privilege, so
+# toybox tar runs as fake-root and extracts $spath/debian relative to cwd.
+./proot -0 --link2symlink -w "$spath" \
+	/system/bin/toybox tar -xzf deb.tar.gz
+
+rm -f deb.tar.gz
+chmod +x proot run-proot run-command-proot 2>/dev/null || true
+echo "adeb: proot rootfs unpacked at $spath/debian"

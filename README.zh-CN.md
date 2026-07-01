@@ -61,6 +61,27 @@ adeb 会自动把内核的 tracefs 绑定挂载进环境，无论内核把它暴
   （`CONFIG_IKHEADERS` / `/sys/kernel/kheaders.tar.xz`），这些工具会报
   “Unable to find kernel headers”；此时请优先使用 bpftrace / CO-RE 工具。
 
+### 无 root 运行（proot 后端）
+adeb 有两种进入 Debian 环境的后端：
+
+- **chroot（默认，需 root）**：真正的 `chroot` + 绑定挂载，原生速度、功能完整
+  （含内核追踪 eBPF/BCC/perf）。当 `adb root`（或 `su`）可用时使用。
+- **proot（无需 root）**：[proot](https://proot-me.github.io/) 用 `ptrace(2)`
+  在用户态模拟 `chroot` 和假 root，因此**未 root 的设备也能跑**。你能得到完整的
+  Debian 用户态(apt、gcc/clang、python、git、编辑器、跑普通程序），但**没有内核
+  追踪**(eBPF/BCC/perf 需要真实内核权限，proot 给不了），且更慢（每个系统调用都过
+  ptrace）。
+
+adeb 会自动选择：`adb root` 失败时回退到 proot；用 `--proot` 强制。proot 需要目标
+架构的静态 `proot` 二进制,用 `--proot-bin <路径>` 提供（如 Termux 的
+`pkg install proot`，或自行静态编译）：
+```
+adeb prepare --proot --build --proot-bin /path/to/proot-aarch64
+adeb shell
+```
+rootfs 会以非 root 身份安装到 `/data/local/tmp/adeb`，并**在 proot 内**解包以模拟
+设备节点与属主。
+
 **主机（Host）：**
 一台较新的 Ubuntu/Debian，4GB 内存、4GB 空闲空间。需要 `debootstrap` 和
 `qemu-user-static` 包。已不再需要旧的 `qemu-debootstrap` 包装器：只要装了

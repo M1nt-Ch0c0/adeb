@@ -1,0 +1,24 @@
+#!/system/bin/sh
+# Enter the adeb Debian environment WITHOUT root, using proot (ptrace-based).
+#
+# proot needs no root: it uses ptrace(2) to intercept syscalls and rewrite
+# paths so the rootfs looks like /, and `-0` presents a fake uid 0 so apt/dpkg
+# are happy. Unlike the chroot backend there are no real bind mounts and NO
+# kernel tracing (eBPF/BCC/perf need real privilege the kernel won't grant).
+spath=$(cd "$(dirname "$0")" && pwd)
+PROOT="$spath/proot"
+ROOTFS="$spath/debian"
+
+[ -x "$PROOT" ] || { echo "adeb: proot binary missing or not executable at $PROOT" >&2; exit 1; }
+[ -d "$ROOTFS" ] || { echo "adeb: rootfs missing at $ROOTFS (run 'adeb prepare' first)" >&2; exit 1; }
+
+# Optional extra bind mounts (e.g. -b /sdcard) can be supplied via ADEB_BINDS.
+exec "$PROOT" -0 --link2symlink -r "$ROOTFS" \
+	-b /dev -b /proc -b /sys \
+	${ADEB_BINDS} \
+	-w /root \
+	/usr/bin/env -i \
+		HOME=/root \
+		TERM="${TERM:-xterm}" \
+		PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+		/bin/bash --rcfile /.bashrc.silent

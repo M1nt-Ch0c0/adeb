@@ -1,0 +1,19 @@
+#!/system/bin/sh
+# Run a single command inside the adeb Debian environment via proot (no root).
+spath=$(cd "$(dirname "$0")" && pwd)
+PROOT="$spath/proot"
+ROOTFS="$spath/debian"
+
+[ -x "$PROOT" ] || { echo "adeb: proot binary missing or not executable at $PROOT" >&2; exit 1; }
+[ -d "$ROOTFS" ] || { echo "adeb: rootfs missing at $ROOTFS (run 'adeb prepare' first)" >&2; exit 1; }
+
+CMD="$*"
+exec "$PROOT" -0 --link2symlink -r "$ROOTFS" \
+	-b /dev -b /proc -b /sys \
+	${ADEB_BINDS} \
+	-w /root \
+	/usr/bin/env -i \
+		HOME=/root \
+		TERM="${TERM:-xterm}" \
+		PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+		/bin/bash --rcfile /.bashrc.silent -i -c "$CMD"

@@ -67,6 +67,8 @@ case $key in
     --sshpass) SSHPASS="sshpass -p$2"; shift || true; shift || true; ;;
     --build-image) BI=1; BUILD_IMAGEF=$2; SKIP_DEVICE=1; DOWNLOAD=0; shift || true; shift || true; ;;
     --no-device) NODEV=1; DOWNLOAD=0; shift || true; ;;
+    --proot) PROOT_MODE=1; shift || true; ;;
+    --proot-bin) PROOTBIN="$2"; PROOT_MODE=1; shift || true; shift || true; ;;
     --debug) set -x; shift || true; ;;
     *) c_error "Unknown option ($1)"; usage; ;;
 esac
@@ -114,47 +116,79 @@ if [[ ! -z ${TARDIR+x} ]] && [[ ! -d $TARDIR ]]; then die 7 "Tar dir specified d
 if [ ! -z ${NODEV+x} ]; then
 	# Device-less build (CI / image generation): never touch a device.
 	[ ! -z ${TARDIR+x} ] || die 12 "--no-device requires --buildtar <dir>"
-elif [ -z $BI ]; then
+elif [ ! -z $BI ]; then
+	[ ! -z $BUILD_IMAGEF ] || die 8 "--build-image passed but no image file provided"
+elif [ ! -z ${PROOT_MODE+x} ]; then
+	# proot (non-root) backend: no adb root, no chroot. Don't probe for root.
+	[ -z $ASHELL ] && c_info "Using the proot (non-root) backend."
+else
 	[ -z $ASHELL ] && c_info "Looking for device.."
 	set +e
 	remote_root
-
-	if [ $? -ne 0 ]; then
-		c_error "adb root failed, make sure:"
-		c_error " * If multiple devices connected, provide --device <serialno>  (or -s <serialno>)"
-		c_error " * Try to run \"adb root\" manually and see if it works. Typically this needs a userdebug build."
-		c_error ""
-		c_error "Note: adb can be typically obtained using the android-tools-adb or the adb"
-		c_error "packages on your distro, or by installing the Android SDK."
-		die 3 "Exiting."
-	fi
+	rr=$?
 	set -e
-else
-	[ ! -z $BUILD_IMAGEF ] || die 8 "--build-image passed but no image file provided"
+	if [ $rr -ne 0 ]; then
+		# No root available: fall back to the proot (non-root) backend instead
+		# of failing, so unrooted devices still get a Debian userland. Kernel
+		# tracing (eBPF/BCC/perf) needs real root and is unavailable there.
+		c_warning "adb root not available; falling back to the proot (non-root) backend."
+		c_warning "(kernel tracing / eBPF / BCC / perf require root and won't work under proot)"
+		PROOT_MODE=1
+	fi
 fi
 
+# Per-backend on-device data directory. chroot needs /data/androdeb; proot runs
+# unprivileged so it lives under /data/local/tmp, which the shell user can both
+# write to and execute from without root.
+if [ ! -z ${PROOT_MODE+x} ]; then
+	DDIR=/data/local/tmp/adeb
+else
+	DDIR=/data/androdeb
+fi
+
+# Install a rootfs tarball for the proot (non-root) backend: push the tar, the
+# proot binary and the proot launchers into $DDIR and unpack as the shell user.
+do_proot_install() {
+	local tar="$1"
+	[ ! -z ${PROOTBIN+x} ] && [ -f "$PROOTBIN" ] || \
+		die 13 "proot mode needs a proot binary for $ARCH: pass --proot-bin <path> (e.g. Termux's proot or a static build)"
+	c_info "Installing (proot, non-root) into $DDIR on device.."
+	remote_shell mkdir -p $DDIR/
+	run_quiet remote_copy "$tar" $DDIR/deb.tar.gz
+	run_quiet remote_copy $spath/addons/run-proot $spath/addons/run-command-proot \
+		$spath/addons/device-unpack-proot $DDIR/
+	run_quiet remote_copy "$PROOTBIN" $DDIR/proot
+	remote_shell chmod +x $DDIR/run-proot $DDIR/run-command-proot \
+		$DDIR/device-unpack-proot $DDIR/proot
+	remote_shell $DDIR/device-unpack-proot
+	do_cleanup; all_done_banner
+}
+
 if [ ! -z "$REMOVE" ]; then
-	die_if_no_androdeb "Nothing to remove."
-	remote_shell /data/androdeb/device-umount-all || true;
-	remote_shell rm -rf /data/androdeb; exit 0; fi
+	set +e; remote_shell ls $DDIR/debian > /dev/null 2>&1; have=$?; set -e
+	[ $have -eq 0 ] || die 2 "Nothing to remove."
+	# Only the chroot backend has mounts to tear down.
+	[ -z ${PROOT_MODE+x} ] && remote_shell $DDIR/device-umount-all || true
+	remote_shell rm -rf $DDIR; exit 0; fi
 
 ##########################################################
 #  SHELL
 ##########################################################
 if [ ! -z ${ASHELL+x} ]; then
-	set +e; remote_shell ls /data/androdeb/debian/.bashrc > /dev/null 2>&1
+	set +e; remote_shell ls $DDIR/debian/.bashrc > /dev/null 2>&1
 	if [ $? -ne 0 ]; then
 	   die 2 "Device doesn't have an androdeb environment, run \"./androdeb prepare\" first";
 	fi; set -e
 
+	if [ ! -z ${PROOT_MODE+x} ]; then RUNS=run-proot; RUNC=run-command-proot; else RUNS=run; RUNC=run-command; fi
 	if [ ! -z ${SHELL_ARGS+x} ]; then
 		# Explanation of quotes:
 		# Outer quote is so that androdeb's bash passes the SHELL_ARGS as a single
 		# argument to $ADB shell. Inner quotes is so that run-command can receive all
 		# the args even though they may be separated by spaces. \m/
-		remote_shell -t /data/androdeb/run-command "\"$SHELL_ARGS\""
+		remote_shell -t $DDIR/$RUNC "\"$SHELL_ARGS\""
 	else
-		remote_shell -t /data/androdeb/run
+		remote_shell -t $DDIR/$RUNS
 	fi
 
 	exit 0
@@ -227,6 +261,7 @@ OUT_TMP=$TDIR/debian; rm -rf $OUT_TMP; mkdir -p $OUT_TMP
 # Build FS from existing tar, very simple.
 if [ ! -z "$TARF" ]; then
 	c_info "Using archive at $TARF for filesystem preparation"
+	if [ ! -z ${PROOT_MODE+x} ]; then do_proot_install "$TARF"; exit 0; fi
 	remote_shell mkdir -p /data/androdeb/
 
 	c_info "Pushing filesystem to device.."
@@ -287,6 +322,9 @@ if [ $SKIP_DEVICE -eq 1 ]; then
 	do_cleanup
 	exit 0
 fi
+
+# Non-root install via proot (no adb root, no chroot, no on-device BCC build).
+if [ ! -z ${PROOT_MODE+x} ]; then do_proot_install "$TDIR/deb.tar.gz"; exit 0; fi
 
 # Push tar to device and start unpack
 remote_shell mkdir -p /data/androdeb/
