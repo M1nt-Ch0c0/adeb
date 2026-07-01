@@ -111,7 +111,10 @@ fi
 
 if [[ ! -z ${TARDIR+x} ]] && [[ ! -d $TARDIR ]]; then die 7 "Tar dir specified doesn't exist"; fi
 
-if [ -z $BI ]; then
+if [ ! -z ${NODEV+x} ]; then
+	# Device-less build (CI / image generation): never touch a device.
+	[ ! -z ${TARDIR+x} ] || die 12 "--no-device requires --buildtar <dir>"
+elif [ -z $BI ]; then
 	[ -z $ASHELL ] && c_info "Looking for device.."
 	set +e
 	remote_root
