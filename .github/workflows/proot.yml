@@ -26,7 +26,7 @@ jobs:
       - name: Build static proot from source (musl/Alpine)
         run: |
           docker run --rm -v "$PWD:/out" alpine:3.20 sh -eux -c '
-            apk add --no-cache build-base linux-headers git talloc-dev talloc-static
+            apk add --no-cache build-base linux-headers bsd-compat-headers git talloc-dev talloc-static
             git clone --depth 1 https://github.com/proot-me/proot /src
             make -C /src/src proot V=1 LDFLAGS="-static"
             /src/src/proot --version
