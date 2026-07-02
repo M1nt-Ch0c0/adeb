@@ -46,10 +46,19 @@ do_mounts()
 		mount --bind /vendor debian/vendor/
 	fi
 
+	if [ -d /odm/ ]; then
+		mkdir -p debian/odm/
+		mount --bind /odm debian/odm/
+	fi
+
   if [ -d /dev/binderfs/ ]; then
     mkdir -p debian/dev/binderfs
     mount --bind /dev/binderfs/ debian/dev/binderfs
   fi
+
+	# cgroupfs, for tools that inspect resource accounting / filter by cgroup
+	# (some bpftrace/BCC scripts, ps/top-style resource views).
+	[ -d /sys/fs/cgroup ] && mount --bind /sys/fs/cgroup/ debian/sys/fs/cgroup/ > /dev/null
 
 }
 
