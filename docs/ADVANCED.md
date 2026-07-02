@@ -30,6 +30,27 @@ Fork of the archived [joelagnel/adeb](https://github.com/joelagnel/adeb):
 `shell`/`prepare` run `adb root`: success selects chroot, failure selects proot.
 `--proot` forces proot (needed on userdebug devices, where `adb root` succeeds).
 
+> **Tip:** `adb root` only succeeds on userdebug/eng builds. On a production
+> (user) build it fails and adeb falls back to proot — no eBPF/BCC/perf. If
+> you're willing to root the device, rooting it with
+> [Magisk](https://github.com/topjohnwu/Magisk) or
+> [KernelSU](https://github.com/tiann/KernelSU) and connecting over
+> `--ssh` as root (or via a root shell app) keeps the chroot backend and its
+> kernel-tracing capabilities instead of degrading to proot. Neither is
+> integrated into adeb; this is just a path to get real root when `adb root`
+> doesn't work.
+>
+> | | Magisk | KernelSU |
+> | --- | --- | --- |
+> | Mechanism | Systemless: patches boot image, overlays `/system` at boot | Kernel-mode: grants root from an in-kernel component (GKI 2.0 module or built into a custom kernel) |
+> | Device/kernel requirement | Works on most devices — only needs a patchable boot image | Needs a compatible kernel: official GKI 2.0 (5.10+), a custom-built kernel (4.14+), or an LKM module where supported |
+> | Install method | Patch boot.img with the Magisk app/CLI, flash it | Flash/boot a KernelSU-enabled kernel, then manage via the app |
+> | Module ecosystem | Largest (1000+ modules), most mature | Smaller but growing (300+ modules), metamodule-based |
+> | Relevance to adeb | Broadest device compatibility — the safer default if you just need a root shell for `--ssh` | Natural fit if you're already building/flashing custom kernels for eBPF/BCC work anyway |
+>
+> Both just need to grant a root shell adeb can reach over `--ssh`; which one
+> you pick doesn't change what the chroot backend can do once you're in.
+
 The backends install to different directories and don't share state — the chroot
 rootfs is root-owned and unreadable to proot — so run `adeb prepare` once per
 backend. Both directories are on `/data` and survive reboots.

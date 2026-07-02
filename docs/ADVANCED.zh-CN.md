@@ -28,6 +28,25 @@
 `shell`/`prepare` 会执行 `adb root`：成功走 chroot，失败走 proot。`--proot` 强制
 proot（userdebug 设备 `adb root` 会成功，所以需显式指定）。
 
+> **提示：** `adb root` 只在 userdebug/eng 设备上成功；生产（user）设备会失败，
+> adeb 因此退化到 proot，eBPF/BCC/perf 都不可用。如果你愿意给设备 root，用
+> [Magisk](https://github.com/topjohnwu/Magisk) 或
+> [KernelSU](https://github.com/tiann/KernelSU) root 后，配合 `--ssh` 以 root
+> 身份连接（或用 root shell 类 app），就能保住 chroot 后端和内核追踪能力，而不
+> 是退化到 proot。两者都没有集成进 adeb，这里只是提供一条 `adb root` 失败时拿到
+> 真 root 的路径。
+>
+> | | Magisk | KernelSU |
+> | --- | --- | --- |
+> | 机制 | Systemless：打补丁到 boot 镜像，启动时叠加 `/system` | 内核态：由内核内组件授予 root（GKI 2.0 模块，或编译进自定义内核） |
+> | 设备/内核要求 | 多数设备可用，只需能打补丁的 boot 镜像 | 需要兼容内核：官方 GKI 2.0（5.10+）、自编译内核（4.14+），或支持的 LKM 模块 |
+> | 安装方式 | 用 Magisk app/CLI 打补丁 boot.img 再刷入 | 刷入/启动带 KernelSU 的内核，再用 app 管理 |
+> | 模块生态 | 最大（1000+ 模块），最成熟 | 较小但在增长（300+ 模块），metamodule 架构 |
+> | 对 adeb 的意义 | 设备兼容性最广——只是想要个 root shell 走 `--ssh` 的更稳妥默认选择 | 如果本来就在为 eBPF/BCC 自编译/刷自定义内核，顺手就是这条路 |
+>
+> 两者都只是给 adeb 提供一个能通过 `--ssh` 连上的 root shell；选哪个不影响进去
+> 之后 chroot 后端能做什么。
+
 两个后端安装在不同目录、不共享状态——chroot 的 rootfs 属 root，proot 读不了——所以
 每个后端各 `adeb prepare` 一次。两个目录都在 `/data` 上，重启不丢。
 
