@@ -3,65 +3,53 @@
 
 # adeb
 
-> 📖 中文文档: **[README.zh-CN.md](README.zh-CN.md)** · 🛠 Advanced & developer docs: **[docs/ADVANCED.md](docs/ADVANCED.md)**
->
-> Actively maintained fork of the archived
-> [joelagnel/adeb](https://github.com/joelagnel/adeb), modernized for current
-> Debian (bookworm) and Android — and still being updated. See
-> [what changed vs. upstream](docs/ADVANCED.md#changes-vs-upstream).
+中文: [README.zh-CN.md](README.zh-CN.md) · Advanced docs: [docs/ADVANCED.md](docs/ADVANCED.md)
 
-**adeb** (aka **androdeb**) gives you a full Debian Linux shell on an Android
-device — editors, compilers (gcc/clang), tracers (perf/BCC/bpftrace), python,
-git — with `apt` to pull anything else. Build and trace natively on-device, no
-cross-compilation, no crippled static binaries.
+Maintained fork of [joelagnel/adeb](https://github.com/joelagnel/adeb)
+(archived), updated for Debian bookworm and current Android.
+
+adeb runs a Debian userland on an Android device over adb — a chroot (or proot)
+with apt, gcc/clang, perf/BCC/bpftrace, python and git. Compile and trace
+on-device instead of cross-compiling.
 
 ## Quick start
 
 ```bash
 git clone https://github.com/M1nt-Ch0c0/adeb && cd adeb
-sudo ln -s "$(pwd)/adeb" /usr/bin/adeb    # optional shortcut
+sudo ln -s "$(pwd)/adeb" /usr/bin/adeb    # optional
 
 adeb prepare          # install the base env on the connected device
-adeb prepare --full   # ...or the full image (compilers, tracers, BCC)
-adeb shell            # enter it;  Ctrl-D to exit
-adeb remove           # uninstall from the device
+adeb prepare --full   # or the full image (compilers, tracers, BCC)
+adeb shell            # enter; Ctrl-D to exit
+adeb remove           # uninstall
 ```
 
-Multiple devices: add `-s <serial>`. Non-Android target over ssh:
-`adeb --ssh <uri> --sshpass <pass>`.
+`-s <serial>` picks a device; `--ssh <uri> [--sshpass <pass>]` targets a
+non-Android host.
 
-## Two backends: root vs non-root
+## Backends
 
-|                              | chroot (default)      | proot (`--proot`)        |
-| ---------------------------- | --------------------- | ------------------------ |
-| Needs root                   | yes (`adb root`/`su`) | **no**                   |
-| Speed                        | native                | slower (ptrace)          |
-| Kernel tracing (eBPF/BCC/perf) | ✅                  | ❌ (userland only)       |
-| On-device location           | `/data/androdeb`      | `/data/local/tmp/adeb`   |
+|                                | chroot         | proot                  |
+| ------------------------------ | -------------- | ---------------------- |
+| root                           | required       | not required           |
+| speed                          | native         | slower (ptrace)        |
+| kernel tracing (eBPF/BCC/perf) | yes            | no                     |
+| install dir                    | /data/androdeb | /data/local/tmp/adeb   |
 
-adeb uses chroot when root is available and otherwise falls back to proot; force
-it with `--proot`. The two are **independent installs** (each needs its own
-`adeb prepare`) and both persist across reboots. Details in
-[docs/ADVANCED.md § Backends](docs/ADVANCED.md#backends).
+chroot is the default; adeb falls back to proot when `adb root` fails, and
+`--proot` forces it. The two are separate installs. See
+[docs/ADVANCED.md](docs/ADVANCED.md#backends).
 
 ## Prebuilt images
 
-Prebuilt **arm64** and **amd64** rootfs images (base + full) are published per
-release by CI, so `adeb prepare [--full] [--arch amd64]` downloads instead of
-building. For any other architecture, add `--build`.
+CI publishes arm64 and amd64 images (base and full) per release, so
+`adeb prepare [--full] [--arch amd64]` downloads them. Other architectures need
+`--build`.
 
 ## Requirements
 
-- **Target:** ARM64 Android (N or later), ≥ 2 GB free in `/data`. Root
-  (`adb root`) is needed only for the chroot backend; proot needs none.
-- **Host** (only if building images locally): recent Ubuntu/Debian/Arch with
-  `debootstrap` + `qemu-user-static` — see
-  [docs/ADVANCED.md § Building locally](docs/ADVANCED.md#building-locally).
+Target: ARM64 Android N+ with 2 GB free in `/data`. Host (only for local
+builds): `debootstrap` + `qemu-user-static`.
 
-## More
-
-Everything else — the full option reference (`--build`, `--buildtar`,
-`--build-image`, `--archive`, `--distro`, `--mirror`, `--proot-bin`, …),
-backend/proot/apt internals, kernel-tracing requirements, the CI/CD pipeline,
-and troubleshooting — lives in **[docs/ADVANCED.md](docs/ADVANCED.md)**.
-BCC-on-Android background: [BCC.md](BCC.md).
+Option reference and internals: [docs/ADVANCED.md](docs/ADVANCED.md).
+BCC background: [BCC.md](BCC.md).
