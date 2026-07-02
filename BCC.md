@@ -15,8 +15,7 @@ Quick Start
 -----------
 adeb is the primary vehicle for running BCC on Android. It supports preparing
 the target Android device, cloning and building BCC on device, and other setup.
-Take a look a quick look at [adeb
-README](https://github.com/joelagnel/adeb/blob/master/README.md) so that you're
+Take a look a quick look at the [adeb README](README.md) so that you're
 familiar with what it is.
 
 To download a prebuilt filesystem with BCC already built/installed for an ARM
@@ -27,9 +26,8 @@ adeb prepare --full
 
 This downloads a prebuilt filesystem for ARM 64-bit and sets it up on your device.
 
-If your device is an architecture other than ARM64, see the [Other
-Architectures
-section](https://github.com/joelagnel/adeb/blob/master/BCC.md#other-architectures-other-than-arm64)
+If your device is an architecture other than ARM64, see
+[docs/ADVANCED.md § Other architectures](docs/ADVANCED.md#other-architectures).
 
 Now to run BCC, just start an adeb shell: `adeb shell`. This uses adb
 in the background to start a shell into your adeb environment. Try running
